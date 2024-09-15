@@ -90,6 +90,22 @@ class Coder:
     suggest_shell_commands = True
     ignore_mentions = None
     chat_language = None
+    def load_script(self):
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location("ell_script", self.script_path)
+        if spec is None:
+            self.io.tool_error(f"Cannot load script from {self.script_path}")
+            raise ImportError(f"Cannot load script from {self.script_path}")
+        
+        ell_script = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ell_script)
+        
+        if not hasattr(ell_script, "run"):
+            self.io.tool_error("The script must have a 'run' function.")
+            raise AttributeError("The script must have a 'run' function.")
+        
+        self.ell_run_function = ell_script.run
 
     @classmethod
     def create(
@@ -257,6 +273,10 @@ class Coder:
         suggest_shell_commands=True,
         chat_language=None,
     ):
+        self.main_model = main_model
+        self.script_path = script_path
+        self.io = io or InputOutput()
+
         self.chat_language = chat_language
         self.commit_before_message = []
         self.aider_commit_hashes = set()
@@ -427,6 +447,8 @@ class Coder:
             if self.verbose:
                 self.io.tool_output("JSON Schema:")
                 self.io.tool_output(json.dumps(self.functions, indent=4))
+        if self.script_path:
+            self.load_script()
 
     def setup_lint_cmds(self, lint_cmds):
         if not lint_cmds:
@@ -710,21 +732,32 @@ class Coder:
             self.commit_before_message.append(self.repo.get_head_commit_sha())
 
     def run(self, with_message=None, preproc=True):
-        try:
-            if with_message:
-                self.io.user_input(with_message)
-                self.run_one(with_message, preproc)
-                return self.partial_response_content
+        if self.script_path:
+            try:
+                user_input = with_message or self.get_input()
+                output = self.ell_run_function(user_input, self.io)
+                self.io.assistant_output(output)
+                return output
+            except Exception as e:
+                self.io.tool_error(f"Error executing script: {e}")
+        else:
+            try:
+                if with_message:
+                    self.io.user_input(with_message)
+                    self.run_one(with_message, preproc)
+                    return self.partial_response_content
+            except:
+                return
 
-            while True:
-                try:
-                    user_message = self.get_input()
-                    self.run_one(user_message, preproc)
-                    self.show_undo_hint()
-                except KeyboardInterrupt:
-                    self.keyboard_interrupt()
-        except EOFError:
-            return
+                while True:
+                    try:
+                        user_message = self.get_input()
+                        self.run_one(user_message, preproc)
+                        self.show_undo_hint()
+                    except KeyboardInterrupt:
+                        self.keyboard_interrupt()
+                    except EOFError:
+                        return
 
     def get_input(self):
         inchat_files = self.get_inchat_relative_files()

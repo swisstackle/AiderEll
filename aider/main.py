@@ -24,6 +24,8 @@ from aider.report import report_uncaught_exceptions
 from aider.versioncheck import check_version, install_from_main_branch, install_upgrade
 
 from .dump import dump  # noqa: F401
+from .args import get_parser, get_io  # Import get_io from args.py
+
 
 
 def get_git_root():
@@ -351,6 +353,49 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
     parser = get_parser(default_config_files, git_root)
     args, unknown = parser.parse_known_args(argv)
+    io = get_io(pretty=True, yes=args.yes)
+
+    if args.script:
+        script_path = args.script
+        if not Path(script_path).is_file():
+            io.tool_error(f"Script file not found: {script_path}")
+            return 1
+        coder = Coder.create(
+            main_model=None,  # No main model when using a script
+            script_path=script_path,
+            io=io,
+            **kwargs,
+        )
+    else:
+        coder = Coder.create(
+            main_model=main_model,
+            edit_format=args.edit_format,
+            io=io,
+            repo=repo,
+            fnames=fnames,
+            read_only_fnames=read_only_fnames,
+            show_diffs=args.show_diffs,
+            auto_commits=args.auto_commits,
+            dirty_commits=args.dirty_commits,
+            dry_run=args.dry_run,
+            map_tokens=args.map_tokens,
+            verbose=args.verbose,
+            stream=args.stream,
+            use_git=args.git,
+            restore_chat_history=args.restore_chat_history,
+            auto_lint=args.auto_lint,
+            auto_test=args.auto_test,
+            lint_cmds=lint_cmds,
+            test_cmd=args.test_cmd,
+            commands=commands,
+            summarizer=summarizer,
+            map_refresh=args.map_refresh,
+            cache_prompts=args.cache_prompts,
+            map_mul_no_files=args.map_multiplier_no_files,
+            num_cache_warming_pings=args.cache_keepalive_pings,
+            suggest_shell_commands=args.suggest_shell_commands,
+            chat_language=args.chat_language,
+        )
 
     if args.verbose:
         print("Config files search order, if no --config:")
@@ -394,32 +439,13 @@ def main(argv=None, input=None, output=None, force_git_root=None, return_coder=F
 
     editing_mode = EditingMode.VI if args.vim else EditingMode.EMACS
 
-    def get_io(pretty):
-        return InputOutput(
-            pretty,
-            args.yes,
-            args.input_history_file,
-            args.chat_history_file,
-            input=input,
-            output=output,
-            user_input_color=args.user_input_color,
-            tool_output_color=args.tool_output_color,
-            tool_error_color=args.tool_error_color,
-            assistant_output_color=args.assistant_output_color,
-            code_theme=args.code_theme,
-            dry_run=args.dry_run,
-            encoding=args.encoding,
-            llm_history_file=args.llm_history_file,
-            editingmode=editing_mode,
-        )
-
-    io = get_io(args.pretty)
+    io = get_io(args.pretty, yes=args.yes)
     try:
         io.rule()
     except UnicodeEncodeError as err:
         if not io.pretty:
             raise err
-        io = get_io(False)
+        io = get_io(False, yes=args.yes)
         io.tool_warning("Terminal does not support pretty output (UnicodeDecodeError)")
 
     if args.gui and not return_coder:
