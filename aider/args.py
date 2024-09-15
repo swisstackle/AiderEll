@@ -619,57 +619,6 @@ def get_parser(default_config_files, git_root):
     )
 
     return parser
-def get_io(pretty, yes, input_func=input, output_func=print, **kwargs):
-    """
-    Initialize and return an InputOutput instance.
-
-    Args:
-        pretty (bool): Whether to enable pretty output.
-        yes (bool): Whether to always say yes to confirmations.
-        input_func (callable): Function to handle input.
-        output_func (callable): Function to handle output.
-        **kwargs: Additional parameters.
-
-    Returns:
-        InputOutput: An initialized InputOutput instance.
-    """
-    class InputOutput:
-        def __init__(self, pretty, yes, **kwargs):
-            self.pretty = pretty
-            self.yes = yes
-            self.input_func = input_func
-            self.output_func = output_func
-            # Initialize colors and themes based on pretty
-            if self.pretty:
-                self.user_input_color = "#32FF32"
-                self.tool_error_color = "#FF3333"
-                self.tool_warning_color = "#FFFF00"
-                self.assistant_output_color = "#00FFFF"
-                self.code_theme = "monokai"
-            else:
-                self.user_input_color = "green"
-                self.tool_error_color = "red"
-                self.tool_warning_color = "#FFA500"
-                self.assistant_output_color = "blue"
-                self.code_theme = "default"
-
-        def assistant_output(self, output):
-            self.output_func(f"Assistant: {output}")
-
-        def tool_error(self, error):
-            self.output_func(f"Error: {error}")
-
-        def tool_output(self, message, log_only=False):
-            if not log_only:
-                self.output_func(f"Output: {message}")
-
-        def user_input(self, message):
-            user_response = self.input_func(f"{message}")
-            return user_response
-
-        # Add other necessary methods...
-
-    return InputOutput(pretty, yes, **kwargs)
 
 
 def get_md_help():
