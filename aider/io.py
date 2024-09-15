@@ -184,6 +184,7 @@ class InputOutput:
         dry_run=False,
         llm_history_file=None,
         editingmode=EditingMode.EMACS,
+        script_mode=False,
     ):
         self.editingmode = editingmode
         no_color = os.environ.get("NO_COLOR")
@@ -196,6 +197,7 @@ class InputOutput:
         self.tool_warning_color = tool_warning_color if pretty else None
         self.assistant_output_color = assistant_output_color
         self.code_theme = code_theme
+        self.script_mode = script_mode
 
         self.input = input
         self.output = output
@@ -220,24 +222,29 @@ class InputOutput:
         self.append_chat_history(f"\n# aider chat started at {current_time}\n\n")
 
         self.prompt_session = None
-        if self.pretty:
-            # Initialize PromptSession
-            session_kwargs = {
-                "input": self.input,
-                "output": self.output,
-                "lexer": PygmentsLexer(MarkdownLexer),
-                "editing_mode": self.editingmode,
-            }
-            if self.input_history_file is not None:
-                session_kwargs["history"] = FileHistory(self.input_history_file)
-            try:
-                self.prompt_session = PromptSession(**session_kwargs)
-                self.console = Console()  # pretty console
-            except Exception as err:
-                self.console = Console(force_terminal=False, no_color=True)
-                self.tool_error(f"Can't initialize prompt toolkit: {err}")  # non-pretty
+
+        if not self.script_mode:
+            if self.pretty:
+                # Initialize PromptSession
+                session_kwargs = {
+                    "input": self.input,
+                    "output": self.output,
+                    "lexer": PygmentsLexer(MarkdownLexer),
+                    "editing_mode": self.editingmode,
+                }
+                if self.input_history_file is not None:
+                    session_kwargs["history"] = FileHistory(self.input_history_file)
+                try:
+                    self.prompt_session = PromptSession(**session_kwargs)
+                    self.console = Console()  # pretty console
+                except Exception as err:
+                    self.console = Console(force_terminal=False, no_color=True)
+                    self.tool_error(f"Can't initialize prompt toolkit: {err}")  # non-pretty
+            else:
+                self.console = Console(force_terminal=False, no_color=True)  # non-pretty
         else:
             self.console = Console(force_terminal=False, no_color=True)  # non-pretty
+
 
     def read_image(self, filename):
         try:

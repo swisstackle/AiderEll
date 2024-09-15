@@ -32,7 +32,8 @@ from aider.utils import format_content, format_messages, format_tokens, is_image
 
 from ..dump import dump  # noqa: F401
 from .chat_chunks import ChatChunks
-
+import subprocess
+import sys
 
 class MissingAPIKeyError(ValueError):
     pass
@@ -100,12 +101,8 @@ class Coder:
         
         ell_script = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(ell_script)
-        
-        if not hasattr(ell_script, "run"):
-            self.io.tool_error("The script must have a 'run' function.")
-            raise AttributeError("The script must have a 'run' function.")
-        
         self.ell_run_function = ell_script.run
+        
 
     @classmethod
     def create(
@@ -272,6 +269,7 @@ class Coder:
         num_cache_warming_pings=0,
         suggest_shell_commands=True,
         chat_language=None,
+        script_path=None,
     ):
         self.main_model = main_model
         self.script_path = script_path
@@ -731,15 +729,26 @@ class Coder:
         if self.repo:
             self.commit_before_message.append(self.repo.get_head_commit_sha())
 
+    def run_script(self):
+        try:
+            # Assuming the script has been loaded and is accessible
+            self.io.tool_output("Running the script...")
+            # Example of sending input to the function
+            while True:
+                user_input = input("Enter input for the script (type 'exit' to quit): ")
+                if user_input.strip() == "exit":
+                    break
+
+                # Call the ell_function with user input
+                response = self.ell_run_function(user_input)  # Assuming ell_function processes the input
+                self.io.assistant_output(response)  # Output the response from the function
+
+        except Exception as e:
+            self.io.tool_error(f"Failed to run script: {e}")
+
     def run(self, with_message=None, preproc=True):
         if self.script_path:
-            try:
-                user_input = with_message or self.get_input()
-                output = self.ell_run_function(user_input, self.io)
-                self.io.assistant_output(output)
-                return output
-            except Exception as e:
-                self.io.tool_error(f"Error executing script: {e}")
+            self.run_script()
         else:
             try:
                 if with_message:
