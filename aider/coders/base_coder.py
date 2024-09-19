@@ -101,7 +101,8 @@ class Coder:
         
         ell_script = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(ell_script)
-        self.ell_run_function = ell_script.run
+        v = ell_script.run
+        self.ell_run_function = v
         
 
     @classmethod
